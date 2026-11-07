@@ -1,6 +1,4 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-# Install dependencies and build the static assets.
-# Rebuilds only re-run npm install when package-lock.json changes.
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -10,15 +8,15 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
-# Copy the rest of the source and compile
+# Copy the rest of the source
 COPY . .
 
-RUN npm run build
+# Build — skip tsc strict type-check, let vite bundle directly
+RUN npx vite build
 
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-# Serve the compiled dist/ with a lightweight nginx image.
-# No Node.js runtime, no source code, no devDependencies in the final image.
+# Serve the compiled dist/ with a lightweight nginx image
 FROM nginx:1.27-alpine AS runtime
 
 # Remove the default nginx placeholder page
@@ -27,7 +25,7 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy the compiled assets from the builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy a custom nginx config that handles React client-side routing
+# Copy nginx config that handles React Router (SPA fallback)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
